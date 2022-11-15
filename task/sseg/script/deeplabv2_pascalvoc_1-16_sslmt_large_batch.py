@@ -2,14 +2,6 @@ import os
 import sys
 import collections
 
-
-'''
-Notes
-- this is the default config with 1-16 labels
-- can't use A40 gpus
-- 3 GPUS use 3730 MiB ram, 1 GPU uses 5522 MiB ram
-'''
-
 try:
     import pixelssl
     pixelssl.log_info('Use installed pixelssl=={0}\n'.format(pixelssl.__version__))
@@ -34,7 +26,7 @@ config = collections.OrderedDict(
         ('ema_decay', 0.99),
 
         # arguments - exp
-        ('resume', 'result/deeplabv2_pascalvoc_1-16_sslmt/first_run/ckpt/checkpoint_20.ckpt'),
+        ('resume', 'result/deeplabv2_pascalvoc_1-16_sslmt_large_batch/first_run/ckpt/checkpoint_20.ckpt'),
         ('validation', True),
 
         ('out_path', 'result'),
@@ -77,8 +69,8 @@ config = collections.OrderedDict(
 
         # arguments - training details
         ('epochs', 20),
-        ('batch_size', 4),
-        ('unlabeled_batch_size', 2),
+        ('batch_size', 10),
+        ('unlabeled_batch_size', 5),
 
     ]
 )
