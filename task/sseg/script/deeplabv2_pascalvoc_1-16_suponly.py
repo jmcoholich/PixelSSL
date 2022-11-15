@@ -72,7 +72,7 @@ config = collections.OrderedDict(
         ('backbone', 'resnet101-coco'),
 
         # arguments - task special data
-        ('val_rescaling', True),
+        ('val_rescaling', False),
         ('train_base_size', 400),
 
         # arguments - training details
