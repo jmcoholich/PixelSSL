@@ -32,6 +32,101 @@ def pascal_voc_aug():
 def pascal_voc_ori():
     return PascalVocOriDataset
 
+def cityscapes():
+    return CityScapes
+
+
+class CityScapes(pixelssl.data_template.TaskDataset):
+    IMAGE = 'image'
+    LABEL = 'label'
+    PREFIX = 'prefix'
+
+    def __init__(self, args, is_train):
+        super(CityScapes, self).__init__(args, is_train)
+        self.im_size = self.args.im_size
+        self.transform = None
+        train_prefix_path = 'train.txt'
+        val_prefix_path = 'val.txt'
+        if self.is_train:
+            self.fliplr = True
+            self.prefix_path = os.path.join(self.root_dir, train_prefix_path)
+        else:
+            self.fliplr = False
+            self.prefix_path = os.path.join(self.root_dir, val_prefix_path)
+
+        self.image_dir = os.path.join(self.root_dir, 'PNGImages')
+        self.label_dir = os.path.join(self.root_dir, 'SegmentationClass')
+
+        with open(self.prefix_path, 'r') as f:
+            lines = f.read().splitlines()
+        
+        for ii, line in enumerate(lines):
+            image_path = os.path.join(self.image_dir, line + '.png')
+            if not os.path.isfile(image_path):
+                pixelssl.log_err('Cannot find image: {0} in CityScapes VOC Dataset\n'.format(image_path))
+            self.sample_list.append(line)
+
+        self.idxs = [_ for _ in range(0, len(self.sample_list))]
+
+    def __getitem__(self, idx):
+        sample_name = self.sample_list[idx]
+
+        image_path = os.path.join(self.image_dir, sample_name + '.png')
+        label_path = os.path.join(self.label_dir, sample_name + '.png')
+
+        has_label = os.path.exists(label_path)
+        if not self.is_train and not has_label:
+            pixelssl.log_err('The val sample of CityScapes dataset should has label\n'
+                             'However, cannot find label: {0}\n'.format(label_path))
+
+        image = self.im_loader.load(image_path).convert('RGB')
+        label = self.im_loader.load(label_path) if has_label else None
+        
+        if self.is_train:
+            image, label = self._train_prehandle(image, label)
+        else:
+            image, label = self._val_prehandle(image, label)
+
+        label = label[None, :, :] if has_label else label
+
+        return (image, ), (label, )
+
+    def _train_prehandle(self, image, label):
+        if label is None:
+            sample = {self.IMAGE: image, self.LABEL: image} 
+        else:
+            sample = {self.IMAGE: image, self.LABEL: label}
+        composed_transforms = transforms.Compose([
+            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size),
+            RandomHorizontalFlip(),
+            # RandomGaussianBlur(),
+            Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ToTensor()])
+
+        transformed_sample = composed_transforms(sample)
+
+        if label is None:
+            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE][0, ...] * 0.0 - 1.0
+        else:
+            return transformed_sample[self.IMAGE], transformed_sample[self.LABEL]
+
+    def _val_prehandle(self, image, label):
+        sample = {self.IMAGE: image, self.LABEL: label}
+
+        if self.args.val_rescaling:
+            composed_transforms = transforms.Compose([
+                FixedScaleResize(size=self.args.im_size),
+                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ToTensor()])
+        else:
+            composed_transforms = transforms.Compose([
+                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ToTensor()])
+
+        transformed_sample = composed_transforms(sample)
+        return transformed_sample[self.IMAGE], transformed_sample[self.LABEL]
+
+
 
 class PascalVocDataset(pixelssl.data_template.TaskDataset):
     IMAGE = 'image'
