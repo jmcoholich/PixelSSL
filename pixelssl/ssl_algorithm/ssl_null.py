@@ -21,8 +21,8 @@ from . import ssl_base
 
 def add_parser_arguments(parser):
     ssl_base.add_parser_arguments(parser)
-    
-    
+
+
 def ssl_null(args, model_dict, optimizer_dict, lrer_dict, criterion_dict, task_func):
     if not len(model_dict) == len(optimizer_dict) == len(lrer_dict) == len(criterion_dict) == 1:
         logger.log_err('The len(element_dict) of SSL_NULL should be 1\n')
@@ -127,10 +127,10 @@ class SSLNULL(ssl_base._SSLBase):
                                 '  task-{3}\t=>\t'
                                 'task-loss: {meters[task_loss]:.6f}\t'
                                 .format(epoch + 1, idx, len(data_loader), self.args.task, meters=self.meters))
-                        
+
             # visualization
             if self.args.visualize and idx % self.args.visual_freq == 0:
-                self._visualize(epoch, idx, True, 
+                self._visualize(epoch, idx, True,
                                 func.split_tensor_tuple(inp, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(activated_pred, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(gt, 0, 1, reduce_dim=True))
@@ -138,14 +138,14 @@ class SSLNULL(ssl_base._SSLBase):
             # update iteration-based lrers
             if not self.args.is_epoch_lrer:
                 self.lrer.step()
-        
+
         # update epoch-based lrers
         if self.args.is_epoch_lrer:
             self.lrer.step()
 
     def _validate(self, data_loader, epoch):
         self.meters.reset()
-        
+
         self.model.eval()
 
         for idx, (inp, gt) in enumerate(data_loader):
@@ -154,11 +154,11 @@ class SSLNULL(ssl_base._SSLBase):
             inp, gt = self._batch_prehandle(inp, gt)
             if len(gt) > 1 and idx == 0:
                 self._inp_warn()
-            
             resulter, debugger = self.model.forward(inp)
+
             if not 'pred' in resulter.keys() or not 'activated_pred' in resulter.keys():
                 self._pred_err()
-            
+
             pred = tool.dict_value(resulter, 'pred')
             activated_pred = tool.dict_value(resulter, 'activated_pred')
 
@@ -167,7 +167,7 @@ class SSLNULL(ssl_base._SSLBase):
             self.meters.update('task_loss', task_loss.data)
 
             self.task_func.metrics(activated_pred, gt, inp, self.meters, id_str='task')
-            
+
             self.meters.update('batch_time', time.time() - timer)
             if idx % self.args.log_freq == 0:
                 logger.log_info('step: [{0}][{1}/{2}]\tbatch-time: {meters[batch_time]:.3f}\n'
@@ -176,7 +176,7 @@ class SSLNULL(ssl_base._SSLBase):
                                 .format(epoch + 1, idx, len(data_loader), self.args.task, meters=self.meters))
 
             if self.args.visualize and idx % self.args.visual_freq == 0:
-                self._visualize(epoch, idx, False, 
+                self._visualize(epoch, idx, False,
                                 func.split_tensor_tuple(inp, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(activated_pred, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(gt, 0, 1, reduce_dim=True))
@@ -188,7 +188,7 @@ class SSLNULL(ssl_base._SSLBase):
                 for id_str in metrics_info.keys():
                     if key.startswith(id_str):
                         metrics_info[id_str] += '{0}: {1:.6}\t'.format(key, self.meters[key])
-            
+
         logger.log_info('Validation metrics:\n task-metrics\t=>\t{0}\n'.format(metrics_info['task'].replace('_', '-')))
 
     def _save_checkpoint(self, epoch):
@@ -216,16 +216,16 @@ class SSLNULL(ssl_base._SSLBase):
         self.lrer.load_state_dict(checkpoint['lrer'])
 
         return checkpoint['epoch']
-        
+
     # -------------------------------------------------------------------------------------------
     # Tool Functions for SSL_NULL
     # -------------------------------------------------------------------------------------------
 
     def _visualize(self, epoch, idx, is_train, l_inp, l_pred, l_gt):
-        
+
         visualize_path = self.args.visual_train_path if is_train else self.args.visual_val_path
         out_path = os.path.join(visualize_path, '{0}_{1}'.format(epoch, idx))
-        
+
         self.task_func.visualize(out_path, id_str='labeled', inp=l_inp, pred=l_pred, gt=l_gt)
 
     def _batch_prehandle(self, inp, gt):
@@ -235,7 +235,7 @@ class SSLNULL(ssl_base._SSLBase):
         for i in inp:
             inp_var.append(Variable(i).cuda())
         inp = tuple(inp_var)
-            
+
         gt_var = []
         for g in gt:
             gt_var.append(Variable(g).cuda())

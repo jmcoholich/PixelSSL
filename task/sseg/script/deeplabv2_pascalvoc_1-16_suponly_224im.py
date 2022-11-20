@@ -51,7 +51,7 @@ config = collections.OrderedDict(
         ('trainset', {'pascal_voc_aug': ['dataset/PascalVOC/VOCdevkit/VOC2012']}),
         ('valset', {'pascal_voc_aug': ['dataset/PascalVOC/VOCdevkit/VOC2012']}),
         ('num_workers', 2),
-        ('im_size', 321),
+        ('im_size', 224),
 
         ('sublabeled_path', 'dataset/PascalVOC/sublabeled_prefix/1-16/0.txt'),
         ('ignore_unlabeled', True),
