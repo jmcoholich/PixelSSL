@@ -16,6 +16,8 @@ def add_parser_arguments(parser):
     parser.add_argument('--backbone', type=str, default='resnet101', help='sseg - architecture of the backbone network')
     parser.add_argument('--freeze-bn', type=pixelssl.str2bool, default=False, 
                         help='sseg - if true, the statistics in BatchNorm will not be updated')
+    parser.add_argument('--sync-bn', type=pixelssl.str2bool, default=True, 
+                        help='sseg - if true, SyncBN will be used')
 
 
 def deeplabv2():
@@ -39,7 +41,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
 
         self.model = model_func(backbone=self.args.backbone,
             output_stride=self.args.output_stride, num_classes=self.args.num_classes,
-            sync_bn=True, freeze_bn=self.args.freeze_bn, 
+            sync_bn=self.args.sync_bn, freeze_bn=self.args.freeze_bn, 
             pretrained_backbone_url=pretrained_backbone_url)
 
         self.param_groups = [
