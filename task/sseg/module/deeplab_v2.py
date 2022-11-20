@@ -1,4 +1,4 @@
-""" This file is adapted from the repository: https://github.com/hfslyc/AdvSemiSeg 
+""" This file is adapted from the repository: https://github.com/hfslyc/AdvSemiSeg
 """
 
 import torch
@@ -11,7 +11,7 @@ from .backbone import build_backbone
 
 
 class DeepLabV2(nn.Module):
-    def __init__(self, backbone='resnet101', output_stride=16, num_classes=21, 
+    def __init__(self, backbone='resnet101', output_stride=16, num_classes=21,
                  sync_bn=True, freeze_bn=False, pretrained_backbone_url=None):
         super(DeepLabV2, self).__init__()
 

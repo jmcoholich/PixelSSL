@@ -159,7 +159,7 @@ class ResNet(nn.Module):
 def ResNet50(output_stride, BatchNorm, pretrained_url=None):
     """Constructs a ResNet-50 model.
     Args:
-        pretrained_url (str): returns a model from url, which is pre-trained on ImageNet 
+        pretrained_url (str): returns a model from url, which is pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], output_stride, BatchNorm, pretrained_url)
     return model
@@ -168,7 +168,7 @@ def ResNet50(output_stride, BatchNorm, pretrained_url=None):
 def ResNet101(output_stride, BatchNorm, pretrained_url=None):
     """Constructs a ResNet-101 model.
     Args:
-        pretrained_url (str): returns a model from url, which is pre-trained on ImageNet 
+        pretrained_url (str): returns a model from url, which is pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], output_stride, BatchNorm, pretrained_url)
     return model

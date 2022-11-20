@@ -17,11 +17,11 @@ import pixelssl
 
 def add_parser_arguments(parser):
     pixelssl.data_template.add_parser_arguments(parser)
-    parser.add_argument('--val-rescaling', type=pixelssl.str2bool, default=False, 
-                        help='sseg - if true, the short edge of the outputs is scaled ' 
+    parser.add_argument('--val-rescaling', type=pixelssl.str2bool, default=False,
+                        help='sseg - if true, the short edge of the outputs is scaled '
                              'to the size of the inputs, and the long edge is scaled by '
                              'using the same ratio')
-    parser.add_argument('--train-base-size', type=int, default=400, 
+    parser.add_argument('--train-base-size', type=int, default=400,
                         help='sseg - base size of random image cropping during training')
 
 
@@ -150,7 +150,7 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
 
         with open(self.prefix_path, 'r') as f:
             lines = f.read().splitlines()
-        
+
         for ii, line in enumerate(lines):
             image_path = os.path.join(self.image_dir, line + '.jpg')
             if not os.path.isfile(image_path):
@@ -172,7 +172,7 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
 
         image = self.im_loader.load(image_path).convert('RGB')
         label = self.im_loader.load(label_path) if has_label else None
-        
+
         if self.is_train:
             image, label = self._train_prehandle(image, label)
         else:
@@ -184,7 +184,7 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
 
     def _train_prehandle(self, image, label):
         if label is None:
-            sample = {self.IMAGE: image, self.LABEL: image} 
+            sample = {self.IMAGE: image, self.LABEL: image}
         else:
             sample = {self.IMAGE: image, self.LABEL: label}
         composed_transforms = transforms.Compose([
@@ -223,7 +223,7 @@ class PascalVocAugDataset(PascalVocDataset):
         train_prefix_path = 'ImageSets/Segmentation/train_aug.txt'
         val_prefix_path = 'ImageSets/Segmentation/val.txt'
 
-        super(PascalVocAugDataset, self).__init__(args, is_train, train_prefix_path, val_prefix_path) 
+        super(PascalVocAugDataset, self).__init__(args, is_train, train_prefix_path, val_prefix_path)
 
 
 class PascalVocOriDataset(PascalVocDataset):
@@ -231,7 +231,7 @@ class PascalVocOriDataset(PascalVocDataset):
         train_prefix_path = 'ImageSets/Segmentation/train.txt'
         val_prefix_path = 'ImageSets/Segmentation/val.txt'
 
-        super(PascalVocOriDataset, self).__init__(args, is_train, train_prefix_path, val_prefix_path) 
+        super(PascalVocOriDataset, self).__init__(args, is_train, train_prefix_path, val_prefix_path)
 
 
 # ---------------------------------------------------------------------
@@ -354,7 +354,7 @@ class RandomScaleCrop(object):
 class FixedScaleResize(object):
     def __init__(self, size):
         self.size = size
-    
+
     def __call__(self, sample):
         img = sample['image']
         mask = sample['label']
@@ -385,5 +385,5 @@ class FixedScaleResize(object):
 
             img = Image.fromarray(img.astype(np.uint8))
             mask = Image.fromarray(mask.astype(np.uint8))
-            
+
         return {'image': img, 'label': mask}
