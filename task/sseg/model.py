@@ -70,7 +70,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
 
         self.batch, self.channels, self.rows, self.columns = inp.shape
         self.output_classes = 21
-        self.kernel_size = 321
+        self.kernel_size = 769
         # des_stride = 25
         # # import pdb; pdb.set_trace()
         # n_windows_row = max(int((self.rows - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
@@ -88,8 +88,8 @@ class DeepLab(pixelssl.model_template.TaskModel):
         # else:
         #     padding_cols = 0
         # self.padding = (padding_rows, padding_cols)
-        self.padding = 100
-        self.stride = 25
+        self.padding = 300
+        self.stride = 256
         inp = nn.functional.unfold(
             inp,
             kernel_size=(self.kernel_size, self.kernel_size),
@@ -154,12 +154,10 @@ class DeepLab(pixelssl.model_template.TaskModel):
                 'However, {0} inputs are given\n'.format(len(inp)))
 
         inp = inp[0]
-        # if slide:
-        if True:  #TODO
+        if slide:
             inp = self.make_sliding_windows(inp)
-            # import pdb; pdb.set_trace()
         pred, latent = self.model.forward(inp)
-        if True:
+        if slide:
             pred, latent = self.unmake_sliding_windows(pred, latent)
         resulter['pred'] = (pred, )
         resulter['activated_pred'] = (F.softmax(pred, dim=1), )

@@ -2,6 +2,14 @@ import os
 import sys
 import collections
 
+
+'''
+Notes
+- this is the default config with 1-16 labels
+- can't use A40 gpus
+- 3 GPUS use 3730 MiB ram, 1 GPU uses 5522 MiB ram
+'''
+
 try:
     import pixelssl
     pixelssl.log_info('Use installed pixelssl=={0}\n'.format(pixelssl.__version__))
@@ -17,17 +25,17 @@ config = collections.OrderedDict(
         ('exp_id', os.path.basename(__file__).split(".")[0]),
 
         # arguments - SSL algorithm
-        ('ssl_algorithm', pixelssl.SSL_NULL),
+        ('ssl_algorithm', pixelssl.SSL_MTSLIDING),
 
-        # ('cons_for_labeled', False),
-        # ('cons_scale', 1.0),
-        # ('cons_rampup_epochs', 3),
+        ('cons_for_labeled', False),
+        ('cons_scale', 1.0),
+        ('cons_rampup_epochs', 3),
 
-        # ('ema_decay', 0.99),
+        ('ema_decay', 0.99),
 
         # arguments - exp
-        ('resume', 'result/deeplabv2_cityscapes_1-16_suponly/2022-11-19_14:26:04/ckpt/checkpoint_40.ckpt'),
-        ('validation', True),
+        # ('resume', 'result/deeplabv2_pascalvoc_1-16_sslmt/first_run/ckpt/checkpoint_20.ckpt'),
+        # ('validation', True),
 
         ('out_path', 'result'),
 
@@ -46,7 +54,7 @@ config = collections.OrderedDict(
         ('im_size', 769),
 
         ('sublabeled_path', 'dataset/cityscapes/sublabeled-prefix/1-16/0.txt'),
-        ('ignore_unlabeled', True),
+        ('ignore_unlabeled', False),
 
         # arguments - task specific components
         ('models', {'model': 'deeplabv2'}),
@@ -65,13 +73,13 @@ config = collections.OrderedDict(
         ('sync_bn', False),
 
         # arguments - task special data
-        ('val_rescaling', False),
+        ('val_rescaling', True),
         ('train_base_size', 1024),
 
         # arguments - training details
         ('epochs', 40),
         ('batch_size', 4),
-        ('unlabeled_batch_size', 0),
+        ('unlabeled_batch_size', 2),
 
     ]
 )
