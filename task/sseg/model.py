@@ -24,6 +24,7 @@ def add_parser_arguments(parser):
     pixelssl.model_template.add_parser_arguments(parser)
 
     # arguments for DeepLab
+    parser.add_argument('--sliding-window-eval', type=pixelssl.str2bool, default=False, help='activate sliding window eval')
     parser.add_argument('--output-stride', type=int, default=16, help='sseg - output stride of the ResNet backbone')
     parser.add_argument('--backbone', type=str, default='resnet101', help='sseg - architecture of the backbone network')
     parser.add_argument('--freeze-bn', type=pixelssl.str2bool, default=False,
@@ -68,7 +69,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
 
         self.batch, self.channels, self.rows, self.columns = inp.shape
         self.output_classes = 21
-        self.kernel_size = 321
+        self.kernel_size = self.args.im_size
         # des_stride = 25
         # # import pdb; pdb.set_trace()
         # n_windows_row = max(int((self.rows - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
@@ -86,8 +87,8 @@ class DeepLab(pixelssl.model_template.TaskModel):
         # else:
         #     padding_cols = 0
         # self.padding = (padding_rows, padding_cols)
-        self.padding = 100
-        self.stride = 25
+        self.padding = int(self.kernel_size // 3)
+        self.stride = int(self.kernel_size // 10)
         inp = nn.functional.unfold(
             inp,
             kernel_size=(self.kernel_size, self.kernel_size),
@@ -150,14 +151,13 @@ class DeepLab(pixelssl.model_template.TaskModel):
             pixelssl.log_err(
                 'Semantic segmentation model DeepLab requires only one input\n'
                 'However, {0} inputs are given\n'.format(len(inp)))
-
         inp = inp[0]
-        # if slide:
-        if True:  #TODO
+        if not self.training and self.sliding_window_eval:
             inp = self.make_sliding_windows(inp)
-            # import pdb; pdb.set_trace()
+
         pred, latent = self.model.forward(inp)
-        if True:
+
+        if not self.training and self.sliding_window_eval:
             pred, latent = self.unmake_sliding_windows(pred, latent)
         resulter['pred'] = (pred, )
         resulter['activated_pred'] = (F.softmax(pred, dim=1), )
