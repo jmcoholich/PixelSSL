@@ -25,6 +25,7 @@ def add_parser_arguments(parser):
 
     # arguments for DeepLab
     parser.add_argument('--sliding-window-eval', type=pixelssl.str2bool, default=False, help='activate sliding window eval')
+    parser.add_argument('--sliding-window-stride-div', type=int, default=10, help='sliding window stride is im_size divided by this number (converted to int)')
     parser.add_argument('--output-stride', type=int, default=16, help='sseg - output stride of the ResNet backbone')
     parser.add_argument('--backbone', type=str, default='resnet101', help='sseg - architecture of the backbone network')
     parser.add_argument('--freeze-bn', type=pixelssl.str2bool, default=False,
@@ -88,7 +89,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
         #     padding_cols = 0
         # self.padding = (padding_rows, padding_cols)
         self.padding = int(self.kernel_size // 3)
-        self.stride = int(self.kernel_size // 10)
+        self.stride = int(self.kernel_size // self.args.sliding_window_stride_div)
         inp = nn.functional.unfold(
             inp,
             kernel_size=(self.kernel_size, self.kernel_size),
@@ -152,12 +153,12 @@ class DeepLab(pixelssl.model_template.TaskModel):
                 'Semantic segmentation model DeepLab requires only one input\n'
                 'However, {0} inputs are given\n'.format(len(inp)))
         inp = inp[0]
-        if not self.training and self.sliding_window_eval:
+        if not self.training and self.args.sliding_window_eval:
             inp = self.make_sliding_windows(inp)
 
         pred, latent = self.model.forward(inp)
 
-        if not self.training and self.sliding_window_eval:
+        if not self.training and self.args.sliding_window_eval:
             pred, latent = self.unmake_sliding_windows(pred, latent)
         resulter['pred'] = (pred, )
         resulter['activated_pred'] = (F.softmax(pred, dim=1), )

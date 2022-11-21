@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=suponly_224im
-#SBATCH --gres gpu:4
+#SBATCH --job-name=suponly_224im_sliding_val_1_stride
+#SBATCH --gres gpu:1
 #SBATCH --nodes 1
 #SBATCH --cpus-per-gpu 7
 #SBATCH --partition=short
 #SBATCH --exclude=nestor
-#SBATCH --output=slurm_logs/suponly_224im.out
-#SBATCH --error=slurm_logs/suponly_224im.err
-#SBATCH --constraint=2080_ti
+#SBATCH --output=slurm_logs/suponly_224im_sliding_val_1_stride.out
+#SBATCH --error=slurm_logs/suponly_224im_sliding_val_1_stride.err
+#SBATCH --constraint=rtx_6000
 
 set -x
 
