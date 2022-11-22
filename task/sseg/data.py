@@ -88,13 +88,14 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
         return (image, ), (label, )
 
     def _train_prehandle(self, image, label):
+        # Return teacher img, student img, label, and metadata
         if label is None:
             sample = {self.IMAGE: image, self.LABEL: image}
         else:
             sample = {self.IMAGE: image, self.LABEL: label}
         composed_transforms = transforms.Compose([
-            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size),
             RandomHorizontalFlip(),
+            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size),
             # RandomGaussianBlur(),
             Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensor()])
@@ -163,7 +164,8 @@ class Normalize(object):
         img /= self.std
 
         return {'image': img,
-                'label': mask}
+                'label': mask,
+                'metadata': sample['metadata']}
 
 
 class ToTensor(object):
@@ -181,7 +183,7 @@ class ToTensor(object):
         img = torch.from_numpy(img).float()
         mask = torch.from_numpy(mask).float()
 
-        return {'image': img, 'label': mask}
+        return {'image': img, 'label': mask, 'metadata': sample['metadata']}
 
 
 class RandomHorizontalFlip(object):
@@ -230,7 +232,9 @@ class RandomScaleCrop(object):
         img = sample['image']
         mask = sample['label']
         # random scale (short edge)
-        short_size = random.randint(int(self.base_size * 0.5), int(self.base_size * 2.0))
+        scale = random.random() * 1.5 + 0.5
+        short_size = int(self.base_size * scale)
+        # short_size = random.randint(int(self.base_size * 0.5), int(self.base_size * 2.0))
         w, h = img.size
         if h > w:
             ow = short_size
@@ -253,7 +257,7 @@ class RandomScaleCrop(object):
         img = img.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
         mask = mask.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
 
-        return {'image': img, 'label': mask}
+        return {'image': img, 'label': mask, "metadata": {"scale": scale}}
 
 
 class FixedScaleResize(object):
