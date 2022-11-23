@@ -1,5 +1,6 @@
 from .ssl_null import SSLNULL
 from .ssl_mt import SSLMT
+from .ssl_mtsliding import SSLMTSLIDING
 from .ssl_adv import SSLADV
 from .ssl_s4l import SSLS4L
 from .ssl_gct import SSLGCT
@@ -14,6 +15,7 @@ SSL_S4L = SSLS4L.NAME
 SSL_GCT = SSLGCT.NAME
 SSL_CCT = SSLCCT.NAME
 SSL_CUTMIX = SSLCUTMIX.NAME
+SSL_MTSLIDING = SSLMTSLIDING.NAME
 
 
 SSL_ALGORITHMS = [
@@ -24,6 +26,7 @@ SSL_ALGORITHMS = [
   SSL_GCT,
   SSL_CCT,
   SSL_CUTMIX,
+  SSL_MTSLIDING
 ]
 
 
@@ -34,3 +37,4 @@ del SSLS4L
 del SSLGCT
 del SSLCCT
 del SSLCUTMIX
+del SSLMTSLIDING

@@ -23,6 +23,8 @@ def add_parser_arguments(parser):
                              'using the same ratio')
     parser.add_argument('--train-base-size', type=int, default=400,
                         help='sseg - base size of random image cropping during training')
+    parser.add_argument('--scale-threshold', type=float, default=1.5,
+                        help='Threshold to decide between regular MT and Sliding MT')
 
 
 def pascal_voc_aug():
@@ -35,6 +37,7 @@ def pascal_voc_ori():
 
 class PascalVocDataset(pixelssl.data_template.TaskDataset):
     IMAGE = 'image'
+    IMAGE_TEACHER = 'image_teacher'
     LABEL = 'label'
     PREFIX = 'prefix'
 
@@ -79,13 +82,13 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
         label = self.im_loader.load(label_path) if has_label else None
 
         if self.is_train:
-            image, label = self._train_prehandle(image, label)
+            image, image_teacher, label, metadata = self._train_prehandle(image, label)
         else:
             image, label = self._val_prehandle(image, label)
 
         label = label[None, :, :] if has_label else label
 
-        return (image, ), (label, )
+        return (image, ), (image_teacher, ), (label, ), metadata
 
     def _train_prehandle(self, image, label):
         # Return teacher img, student img, label, and metadata
@@ -95,7 +98,7 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
             sample = {self.IMAGE: image, self.LABEL: label}
         composed_transforms = transforms.Compose([
             RandomHorizontalFlip(),
-            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size),
+            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size, scale_threshold = self.args.scale_threshold), #This adds two new elements to the returned dict
             # RandomGaussianBlur(),
             Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensor()])
@@ -103,9 +106,9 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
         transformed_sample = composed_transforms(sample)
 
         if label is None:
-            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE][0, ...] * 0.0 - 1.0
+            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE_TEACHER], transformed_sample[self.IMAGE][0, ...] * 0.0 - 1.0, transformed_sample['metadata']
         else:
-            return transformed_sample[self.IMAGE], transformed_sample[self.LABEL]
+            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE_TEACHER], transformed_sample[self.LABEL], transformed_sample['metadata']
 
     def _val_prehandle(self, image, label):
         sample = {self.IMAGE: image, self.LABEL: label}
@@ -154,16 +157,21 @@ class Normalize(object):
         self.mean = mean
         self.std = std
 
-    def __call__(self, sample):
-        img = sample['image']
-        mask = sample['label']
+    def _normalize_image(self, img):
         img = np.array(img).astype(np.float32)
-        mask = np.array(mask).astype(np.float32)
         img /= 255.0
         img -= self.mean
         img /= self.std
+        return img
+
+    def __call__(self, sample):
+        img = self._normalize_image(sample['image'])
+        img_teacher = self._normalize_image(sample['image_teacher'])
+        mask = sample['label']
+        mask = np.array(mask).astype(np.float32)
 
         return {'image': img,
+                'image_teacher': img_teacher,
                 'label': mask,
                 'metadata': sample['metadata']}
 
@@ -176,14 +184,17 @@ class ToTensor(object):
         # numpy image: H x W x C
         # torch image: C X H X W
         img = sample['image']
+        img_teacher = sample['image_teacher']
         mask = sample['label']
         img = np.array(img).astype(np.float32).transpose((2, 0, 1))
+        img_teacher = np.array(img_teacher).astype(np.float32).transpose((2, 0, 1))
         mask = np.array(mask).astype(np.float32)
 
         img = torch.from_numpy(img).float()
+        img_teacher = torch.from_numpy(img_teacher).float()
         mask = torch.from_numpy(mask).float()
 
-        return {'image': img, 'label': mask, 'metadata': sample['metadata']}
+        return {'image': img, 'image_teacher': img_teacher, 'label': mask, 'metadata': sample['metadata']}
 
 
 class RandomHorizontalFlip(object):
@@ -223,16 +234,17 @@ class RandomGaussianBlur(object):
 
 
 class RandomScaleCrop(object):
-    def __init__(self, base_size, crop_size, fill=0):
+    def __init__(self, base_size, crop_size, scale_threshold, fill=0):
         self.base_size = base_size
         self.crop_size = crop_size
         self.fill = fill
+        self.scale_threshold = scale_threshold
 
     def __call__(self, sample):
         img = sample['image']
         mask = sample['label']
         # random scale (short edge)
-        scale = random.random() * 1.5 + 0.5
+        scale = random.uniform(0.5, 2.0)
         short_size = int(self.base_size * scale)
         # short_size = random.randint(int(self.base_size * 0.5), int(self.base_size * 2.0))
         w, h = img.size
@@ -250,14 +262,23 @@ class RandomScaleCrop(object):
             padw = self.crop_size - ow if ow < self.crop_size else 0
             img = ImageOps.expand(img, border=(0, 0, padw, padh), fill=0)
             mask = ImageOps.expand(mask, border=(0, 0, padw, padh), fill=self.fill)
+
         # random crop crop_size
         w, h = img.size
         x1 = random.randint(0, w - self.crop_size)
         y1 = random.randint(0, h - self.crop_size)
-        img = img.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
+        img_student = img.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
         mask = mask.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
 
-        return {'image': img, 'label': mask, "metadata": {"scale": scale}}
+        # img_teacher = img_student.resize((int(self.crop_size//scale), int(self.crop_size//scale)), Image.BILINEAR) #Brings it back to original image space. As if an appropriately sized crop was cut out in the original image (but this takes care of the padding)
+        # if scale < self.scale_threshold and scale > 1:
+        #     tw, th = img_teacher.size
+        #     teacherscale = self.crop_size * 1.5 / min(tw, th) #Making the shorter side atleast 1.5 times the sliding window size (= crop size) so that there is enough room to slide. 
+        #     img_teacher = img_teacher.resize((int(teacherscale*tw), int(teacherscale*th)), Image.BILINEAR)
+        
+        img_teacher = img_student.resize((int(self.crop_size*1.5), int(self.crop_size*1.5)), Image.BILINEAR) #Making the sides 1.5 times the sliding window size (= crop size) so that there is enough room to slide. 
+        return {'image': img_student, 'label': mask, 'image_teacher': img_teacher, "metadata": {"scale": scale}}
+            
 
 
 class FixedScaleResize(object):
