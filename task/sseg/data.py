@@ -251,6 +251,7 @@ class RandomScaleCrop(object):
 
     def __call__(self, sample):
         img = sample['image']
+        img_orig = img.copy()
         mask = sample['label']
         # random scale (short edge)
         scale = random.uniform(0.5, 2.0)
@@ -258,9 +259,11 @@ class RandomScaleCrop(object):
         # short_size = random.randint(int(self.base_size * 0.5), int(self.base_size * 2.0))
         w, h = img.size
         if h > w:
+            scale2 = scale * self.base_size / w
             ow = short_size
             oh = int(1.0 * h * ow / w)
         else:
+            scale2 = scale * self.base_size / h
             oh = short_size
             ow = int(1.0 * w * oh / h)
         img = img.resize((ow, oh), Image.BILINEAR)
@@ -285,10 +288,23 @@ class RandomScaleCrop(object):
         #     teacherscale = self.crop_size * 1.5 / min(tw, th) #Making the shorter side atleast 1.5 times the sliding window size (= crop size) so that there is enough room to slide. 
         #     img_teacher = img_teacher.resize((int(teacherscale*tw), int(teacherscale*th)), Image.BILINEAR)
         
-        img_teacher = img_student.resize((int(self.crop_size*1.5), int(self.crop_size*1.5)), Image.BILINEAR) #Making the sides 1.5 times the sliding window size (= crop size) so that there is enough room to slide. 
-        return {'image': img_student, 'label': mask, 'image_teacher': img_teacher, "metadata": {"scale": scale}}
-            
+        # img_teacher = img_student.resize((int(self.crop_size*1.5), int(self.crop_size*1.5)), Image.BILINEAR) #Making the sides 1.5 times the sliding window size (= crop size) so that there is enough room to slide. 
 
+        if 0.8 < scale2 < self.scale_threshold:
+            img_teacher = img_student.resize((int(self.crop_size*1.5), int(self.crop_size*1.5)), Image.BILINEAR) #TODO maybe need to be larger than 1.5, or based on window size
+        elif scale2 > self.scale_threshold:
+            img_teacher = img_student.copy()
+        else:
+            img_teacher = img_orig.crop((x1 / scale2, y1 / scale2, (x1 + self.crop_size) / scale2, (y1 + self.crop_size)/scale2))
+
+        # import remote_pdb; remote_pdb.set_trace()
+        
+        return {'image': img_student, 'label': mask, 'image_teacher': img_teacher, "metadata": {"scale2": scale2}}
+            
+        # img_orig.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size)).save("debug/teacher3.png")
+        # img_teacher.save("debug/teacher.png")
+        # img_student.save("debug/student.png")
+        # img_orig.save("debug/orig.png")
 
 class FixedScaleResize(object):
     def __init__(self, size):

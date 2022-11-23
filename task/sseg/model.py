@@ -105,6 +105,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
         return inp
 
     def unmake_sliding_windows(self, pred, latent):
+        import remote_pdb; remote_pdb.set_trace()
 
         # for i in range(pred.shape[0]):
         #     img1 = pred[i].argmax(dim=0).to(torch.float32).cpu()/21

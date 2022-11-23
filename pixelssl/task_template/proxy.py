@@ -364,15 +364,23 @@ class TaskProxy:
                 unlabeled_train_samples = len(trainset.unlabeled_idxs)
 
             # if use labeled data only
+            def my_collate(batch):
+                data = [item[0] for item in batch]
+                target = [item[1] for item in batch]
+                gt = [item[2] for item in batch]
+                meta_data = [item[3] for item in batch]
+                target = torch.LongTensor(target)
+                return [data, target, gt, meta_data]
+
             if without_unlabeled_data:
                 self.train_loader = torch.utils.data.DataLoader(trainset, batch_size=self.args.batch_size, 
-                    shuffle=True, num_workers=self.args.num_workers, pin_memory=True, drop_last=True)
+                    shuffle=True, num_workers=self.args.num_workers, pin_memory=True, drop_last=True, collate_fn=my_collate)
             # if use both labeled and unlabeled data
             elif with_unlabeled_data:
                 train_sampler = nndata.TwoStreamBatchSampler(trainset.labeled_idxs, trainset.unlabeled_idxs, 
                     self.args.labeled_batch_size, self.args.unlabeled_batch_size)
                 self.train_loader = torch.utils.data.DataLoader(trainset, batch_sampler=train_sampler, 
-                    num_workers=self.args.num_workers, pin_memory=True)
+                    num_workers=self.args.num_workers, pin_memory=True, collate_fn=my_collate)
 
         # ---------------------------------------------------------------------
         # create dataloader for validation
@@ -400,7 +408,7 @@ class TaskProxy:
         
         # NOTE: batch size is set to 1 during the validation
         self.val_loader = torch.utils.data.DataLoader(valset, batch_size=1,
-            shuffle=False, num_workers=self.args.num_workers, pin_memory=True)
+            shuffle=False, num_workers=self.args.num_workers, pin_memory=True, collate_fn=my_collate)
 
         # check the data loaders
         if self.train_loader is None and not self.args.validation:
