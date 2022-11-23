@@ -69,7 +69,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
         # save_image(img1, 'pics/before_sliding.png')
 
         self.batch, self.channels, self.rows, self.columns = inp.shape
-        self.output_classes = 21
+        self.output_classes = 21 #TODO
         self.kernel_size = self.args.im_size
         # des_stride = 25
         # # import pdb; pdb.set_trace()
@@ -145,7 +145,9 @@ class DeepLab(pixelssl.model_template.TaskModel):
         # return pred, latent
         return pred / temp, latent
 
-    def forward(self, inp, slide=False):
+    def forward(self, inp, slide=False, pred_shape = None):
+        if slide:
+            assert pred_shape  is not None
         resulter, debugger = {}, {}
 
         if not len(inp) == 1:
@@ -153,13 +155,14 @@ class DeepLab(pixelssl.model_template.TaskModel):
                 'Semantic segmentation model DeepLab requires only one input\n'
                 'However, {0} inputs are given\n'.format(len(inp)))
         inp = inp[0]
-        if not self.training and self.args.sliding_window_eval:
+        if slide:
             inp = self.make_sliding_windows(inp)
 
         pred, latent = self.model.forward(inp)
 
-        if not self.training and self.args.sliding_window_eval:
+        if slide:
             pred, latent = self.unmake_sliding_windows(pred, latent)
+            pred = F.interpolate(pred, size = pred_shape, mode = 'bilinear')
         resulter['pred'] = (pred, )
         resulter['activated_pred'] = (F.softmax(pred, dim=1), )
         resulter['ssls4l_rc_inp'] = pred
