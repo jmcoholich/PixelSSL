@@ -166,14 +166,17 @@ class Normalize(object):
 
     def __call__(self, sample):
         img = self._normalize_image(sample['image'])
-        img_teacher = self._normalize_image(sample['image_teacher'])
+        if "image_teacher" in sample:
+            img_teacher = self._normalize_image(sample['image_teacher'])
         mask = sample['label']
         mask = np.array(mask).astype(np.float32)
 
-        return {'image': img,
-                'image_teacher': img_teacher,
+        return_dict = {'image': img,
                 'label': mask,
                 'metadata': sample['metadata']}
+        if 'image_teacher' in sample:
+            return_dict['image_teacher'] = img_teacher
+        return return_dict
 
 
 class ToTensor(object):
@@ -184,7 +187,8 @@ class ToTensor(object):
         # numpy image: H x W x C
         # torch image: C X H X W
         img = sample['image']
-        img_teacher = sample['image_teacher']
+        if 'image_teacher' in sample:
+            img_teacher = sample['image_teacher']
         mask = sample['label']
         img = np.array(img).astype(np.float32).transpose((2, 0, 1))
         img_teacher = np.array(img_teacher).astype(np.float32).transpose((2, 0, 1))
@@ -194,7 +198,12 @@ class ToTensor(object):
         img_teacher = torch.from_numpy(img_teacher).float()
         mask = torch.from_numpy(mask).float()
 
-        return {'image': img, 'image_teacher': img_teacher, 'label': mask, 'metadata': sample['metadata']}
+        return_dict = {'image': img,
+                'label': mask,
+                'metadata': sample['metadata']}
+        if 'image_teacher' in sample:
+            return_dict['image_teacher'] = img_teacher
+        return return_dict
 
 
 class RandomHorizontalFlip(object):
