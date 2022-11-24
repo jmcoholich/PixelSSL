@@ -208,7 +208,6 @@ class SSLMTSLIDING(ssl_base._SSLBase):
         return pred / temp
 
     def _train(self, data_loader, epoch):
-        return
         self.meters.reset()
         lbs = self.args.labeled_batch_size
 
