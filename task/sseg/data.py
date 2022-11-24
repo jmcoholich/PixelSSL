@@ -88,7 +88,10 @@ class PascalVocDataset(pixelssl.data_template.TaskDataset):
 
         label = label[None, :, :] if has_label else label
 
-        return (image, ), (image_teacher, ), (label, ), metadata
+        if self.is_train:
+            return (image, ), (image_teacher, ), (label, ), metadata
+        else:
+            return (image, ), (label, )
 
     def _train_prehandle(self, image, label):
         # Return teacher img, student img, label, and metadata
@@ -172,10 +175,11 @@ class Normalize(object):
         mask = np.array(mask).astype(np.float32)
 
         return_dict = {'image': img,
-                'label': mask,
-                'metadata': sample['metadata']}
+                'label': mask}
         if 'image_teacher' in sample:
             return_dict['image_teacher'] = img_teacher
+        if 'metadata' in sample:
+            return_dict['metadata'] = sample['metadata']
         return return_dict
 
 
@@ -189,20 +193,22 @@ class ToTensor(object):
         img = sample['image']
         if 'image_teacher' in sample:
             img_teacher = sample['image_teacher']
+            img_teacher = np.array(img_teacher).astype(np.float32).transpose((2, 0, 1))
+            img_teacher = torch.from_numpy(img_teacher).float()
+
         mask = sample['label']
         img = np.array(img).astype(np.float32).transpose((2, 0, 1))
-        img_teacher = np.array(img_teacher).astype(np.float32).transpose((2, 0, 1))
         mask = np.array(mask).astype(np.float32)
 
         img = torch.from_numpy(img).float()
-        img_teacher = torch.from_numpy(img_teacher).float()
         mask = torch.from_numpy(mask).float()
 
         return_dict = {'image': img,
-                'label': mask,
-                'metadata': sample['metadata']}
+                'label': mask}
         if 'image_teacher' in sample:
             return_dict['image_teacher'] = img_teacher
+        if 'metadata' in sample:
+            return_dict['metadata'] = sample['metadata']
         return return_dict
 
 
