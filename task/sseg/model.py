@@ -25,7 +25,7 @@ def add_parser_arguments(parser):
 
     # arguments for DeepLab
     parser.add_argument('--sliding-window-eval', type=pixelssl.str2bool, default=False, help='activate sliding window eval')
-    parser.add_argument('--sliding-window-stride-div', type=int, default=10, help='sliding window stride is im_size divided by this number (converted to int)')
+    parser.add_argument('--sliding-window-stride-div', type=int, default=3, help='sliding window stride is im_size divided by this number (converted to int)')
     parser.add_argument('--output-stride', type=int, default=16, help='sseg - output stride of the ResNet backbone')
     parser.add_argument('--backbone', type=str, default='resnet101', help='sseg - architecture of the backbone network')
     parser.add_argument('--freeze-bn', type=pixelssl.str2bool, default=False,
@@ -157,7 +157,12 @@ class DeepLab(pixelssl.model_template.TaskModel):
                 'However, {0} inputs are given\n'.format(len(inp)))
         inp = inp[0]
         if slide:
-            inp = self.make_sliding_windows(inp)
+            windows = []
+            num_windows = []
+            for img in inp:
+                windows.append(self.make_sliding_windows(img.unsqueeze(0)))
+                num_windows.append(windows[-1].shape[0])
+            inp = torch.cat(windows)
 
         pred, latent = self.model.forward(inp)
 

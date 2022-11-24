@@ -18,8 +18,8 @@ from . import ssl_base
 
 
 """ Implementation of pixel-wise Mean Teacher (MT)
-    
-This method is proposed in the paper: 
+
+This method is proposed in the paper:
     'Mean Teachers are Better Role Models:
         Weight-Averaged Consistency Targets Improve Semi-Supervised Deep Learning Results'
 
@@ -69,7 +69,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
         self.s_criterion = None
 
         self.cons_criterion = None
-        
+
         self.gaussian_noiser = None
         self.zero_tensor = torch.zeros(1)
 
@@ -130,10 +130,10 @@ class SSLMTSLIDING(ssl_base._SSLBase):
 
         for idx, (inp, inp_teacher, gt, metadata) in enumerate(data_loader):
             timer = time.time()
-            
+
             # 's_inp', 't_inp' and 'gt' are tuples
             s_inp, t_inp, gt = self._batch_prehandle(inp, inp_teacher, gt, True)
-            
+
             if len(gt) > 1 and idx == 0:
                 self._inp_warn()
 
@@ -163,12 +163,19 @@ class SSLMTSLIDING(ssl_base._SSLBase):
 
             # forward the teacher model
             with torch.no_grad():
+                # t_inp[0][0][0] = 0
+                # t_inp[0][0][1] = 1
+                # t_inp[0][0][2] = 2
+                # t_inp[0][1][0] = 10
+                # t_inp[0][1][1] = 11
+                # t_inp[0][1][2] = 12
+                # TODO add sliding and unsliding here
                 t_resulter, t_debugger = self.t_model.forward(t_inp, slide = True, pred_shape = s_inp[0].shape[2:])
                 if not 'pred' in t_resulter.keys():
                     self._pred_err()
                 t_pred = tool.dict_value(t_resulter, 'pred')
                 t_activated_pred = tool.dict_value(t_resulter, 'activated_pred')
-            
+
                 # calculate 't_task_loss' for recording
                 l_t_pred = func.split_tensor_tuple(t_pred, 0, lbs)
                 l_t_inp = func.split_tensor_tuple(t_inp, 0, lbs)
@@ -209,7 +216,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
 
             # visualization
             if self.args.visualize and idx % self.args.visual_freq == 0:
-                self._visualize(epoch, idx, True, 
+                self._visualize(epoch, idx, True,
                                 func.split_tensor_tuple(s_inp, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(s_activated_pred, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(t_inp, 0, 1, reduce_dim=True),
@@ -276,13 +283,13 @@ class SSLMTSLIDING(ssl_base._SSLBase):
                                 .format(epoch + 1, idx, len(data_loader), self.args.task, meters=self.meters))
 
             if self.args.visualize and idx % self.args.visual_freq == 0:
-                self._visualize(epoch, idx, False, 
+                self._visualize(epoch, idx, False,
                                 func.split_tensor_tuple(s_inp, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(s_activated_pred, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(t_inp, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(t_activated_pred, 0, 1, reduce_dim=True),
                                 func.split_tensor_tuple(gt, 0, 1, reduce_dim=True))
-    
+
         # metrics
         metrics_info = {'student': '', 'teacher': ''}
         for key in sorted(list(self.meters.keys())):
@@ -297,7 +304,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
     def _save_checkpoint(self, epoch):
         state = {
             'algorithm': self.NAME,
-            'epoch': epoch, 
+            'epoch': epoch,
             's_model': self.s_model.state_dict(),
             't_model': self.t_model.state_dict(),
             's_optimizer': self.s_optimizer.state_dict(),
@@ -326,7 +333,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
     # Tool Functions for SSL_MT
     # -------------------------------------------------------------------------------------------
 
-    def _visualize(self, epoch, idx, is_train, 
+    def _visualize(self, epoch, idx, is_train,
                    s_inp, s_pred, t_inp, t_pred, gt):
 
         visualize_path = self.args.visual_train_path if is_train else self.args.visual_val_path
@@ -342,18 +349,26 @@ class SSLMTSLIDING(ssl_base._SSLBase):
         s_inp_var, t_inp_var = [], []
         for idx, i in enumerate(inp):
             if is_train and idx == 0:
-                s_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda())) 
+                s_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda()))
             else:
-                s_inp_var.append(Variable(i).cuda()) 
+                s_inp_var.append(Variable(i).cuda())
 
         for idx, i in enumerate(inp_teacher):
             if is_train and idx == 0:
-                t_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda())) 
+                # t_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda()))
+                temp = []
+                for img in i:
+                    temp.append(img.cuda())
+                t_inp_var.append(temp)
             else:
-                t_inp_var.append(Variable(i).cuda()) 
+                temp = []
+                for img in i:
+                    temp.append(img.cuda())
+                t_inp_var.append(temp)
+                # t_inp_var.append(Variable(i).cuda())
         s_inp = tuple(s_inp_var)
         t_inp = tuple(t_inp_var)
-        
+
         gt_var = []
         for g in gt:
             gt_var.append(Variable(g).cuda())
@@ -384,7 +399,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
                         '  (1) The prediction tuple has the same size as the ground truth tuple\n'
                         '  (2) The elements with the same index in the two tuples are corresponding\n'
                         '  (3) The first element of (pred & gt) will be used to calculate the consistency constraint\n'
-                        'Please implement a new SSL algorithm if you want a variant of SSL_MT to\n' 
+                        'Please implement a new SSL algorithm if you want a variant of SSL_MT to\n'
                         'calculate multiple consisteny constraints (for multiple predictions)\n')
 
     def _pred_err(self):
