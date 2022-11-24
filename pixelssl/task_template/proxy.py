@@ -409,7 +409,7 @@ class TaskProxy:
 
         # NOTE: batch size is set to 1 during the validation
         self.val_loader = torch.utils.data.DataLoader(valset, batch_size=1,
-            shuffle=False, num_workers=self.args.num_workers, pin_memory=True, collate_fn=my_collate)
+            shuffle=False, num_workers=self.args.num_workers, pin_memory=True)
 
         # check the data loaders
         if self.train_loader is None and not self.args.validation:

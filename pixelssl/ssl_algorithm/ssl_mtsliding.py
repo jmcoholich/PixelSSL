@@ -121,7 +121,94 @@ class SSLMTSLIDING(ssl_base._SSLBase):
 
         self._algorithm_warn()
 
+    def make_sliding_windows(self, inp):
+        # This is the sliding window eval implementation
+        # print(data_no_aug.shape)
+
+        # img1 = inp[0]
+        # save_image(img1, 'pics/before_sliding.png')
+
+        batch, channels, rows, columns = inp.shape
+        self.output_classes = 21 #TODO
+        self.kernel_size = self.args.im_size
+        # des_stride = 25
+        # # import pdb; pdb.set_trace()
+        # n_windows_row = max(int((self.rows - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
+        # n_windows_col = max(int((self.columns - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
+        # self.stride = (int((n_windows_row * self.kernel_size - self.rows)
+        #                    / (n_windows_row - 1)),
+        #                int((n_windows_col * self.kernel_size - self.rows)
+        #                    / (n_windows_col - 1)))
+        # if self.rows < self.kernel_size:
+        #     padding_rows = int((self.kernel_size - self.rows) / 2) + 1
+        # else:
+        #     padding_rows = 0
+        # if self.columns < self.kernel_size:
+        #     padding_cols = int((self.kernel_size - self.columns) / 2) + 1
+        # else:
+        #     padding_cols = 0
+        # self.padding = (padding_rows, padding_cols)
+        self.padding = int(self.kernel_size // 3)
+        self.stride = int(self.kernel_size // self.args.sliding_window_stride_div)
+        inp = nn.functional.unfold(
+            inp,
+            kernel_size=(self.kernel_size, self.kernel_size),
+            padding=self.padding,
+            stride=self.stride)
+        num_windows = inp.shape[-1]
+        inp = inp.permute((0, 2, 1))
+        inp = inp.reshape(batch * num_windows, channels, self.kernel_size, self.kernel_size)
+
+        # for i in range(inp.shape[0]):
+        #     img1 = inp[i]
+        #     save_image(img1, f'pics/after_sliding_{i}.png')
+        return inp, {"batch": batch, "channels": channels, "rows": rows, "columns": columns,
+                        "num_windows": num_windows}
+
+    def unmake_sliding_windows(self, pred, meta):
+        # import remote_pdb; remote_pdb.set_trace()
+
+        # for i in range(pred.shape[0]):
+        #     img1 = pred[i].argmax(dim=0).to(torch.float32).cpu()/21
+        #     save_image(img1, f'pics/pred_before_fold_{i}.png')
+        # print("teacher output[0]:", teacher_output_0.shape)
+        pred = pred.reshape(meta['batch'], meta['num_windows'], self.output_classes * self.kernel_size**2)
+        pred = pred.permute((0, 2, 1))
+        temp = torch.ones_like(pred)
+        pred = nn.functional.fold(
+            pred,
+            output_size=(meta['rows'], meta['columns']),
+            kernel_size=(self.kernel_size, self.kernel_size),
+            padding=self.padding,
+            stride=self.stride)
+        temp = nn.functional.fold(
+            temp,
+            output_size=(meta['rows'], meta['columns']),
+            kernel_size=(self.kernel_size, self.kernel_size),
+            padding=self.padding,
+            stride=self.stride)
+        # print("temp shape: ", temp.shape)
+        # temp = temp[:, 0].to(torch.float32).cpu()
+        # pre_conv_temp = pre_conv_temp.permute((1, 2, 0))
+
+        # post_conv_temp = labelMapToIm(pre_conv_temp, [
+        #     [[0, 0, 0], 0],
+        #     [[256, 0, 0], 1],
+        #     [[0, 256, 0], 2],
+        #     [[0, 0, 256], 3],
+        # ])
+        # print("unique vals: ", temp.unique())
+        # save_image(post_conv_temp, "pics/temp.png")
+        # exit()
+
+        # img1 = pred[0].argmax(dim=0).to(torch.float32).cpu()/21
+        # save_image(img1, 'pics/pred_after_fold.png')
+        # exit()
+        # return pred, latent
+        return pred / temp
+
     def _train(self, data_loader, epoch):
+        return
         self.meters.reset()
         lbs = self.args.labeled_batch_size
 
@@ -163,14 +250,43 @@ class SSLMTSLIDING(ssl_base._SSLBase):
 
             # forward the teacher model
             with torch.no_grad():
-                # t_inp[0][0][0] = 0
-                # t_inp[0][0][1] = 1
-                # t_inp[0][0][2] = 2
-                # t_inp[0][1][0] = 10
-                # t_inp[0][1][1] = 11
-                # t_inp[0][1][2] = 12
-                # TODO add sliding and unsliding here
-                t_resulter, t_debugger = self.t_model.forward(t_inp, slide = True, pred_shape = s_inp[0].shape[2:])
+                windows = []
+                num_windows = []
+                metas = []
+                for img, img_meta in zip(t_inp[0], metadata):
+                    scale = img_meta['scale2']
+                    if scale > self.args.scale_threshold: #Don't slide
+                        img_windows = img.unsqueeze(0)
+                        meta = {"batch": 1, "channels": img.shape[0], "rows": img.shape[1], "columns": img.shape[2],
+                        "num_windows": 1, "slide": False}
+                    else:
+                        img_windows, meta = self.make_sliding_windows(img.unsqueeze(0))
+                    windows.append(img_windows)
+                    metas.append(meta)
+                    num_windows.append(windows[-1].shape[0])
+                t_inp = (torch.cat(windows),)
+
+                t_resulter, t_debugger = self.t_model.forward(t_inp)
+                pred = t_resulter['pred'][0]
+                latent = t_resulter['sslcct_ad_inp']
+
+                pointer = 0
+                preds = []
+                for num_window_per_img, meta in zip(num_windows, metas):
+                    if num_window_per_img == 1:
+                        assert not meta['slide']
+                        pred_per_img = pred[pointer:pointer+1]
+                    else:
+                        pred_per_img = self.unmake_sliding_windows(pred[pointer:pointer + num_window_per_img], meta)
+                        pred_per_img = F.interpolate(pred_per_img, size = s_inp[0].shape[2:], mode = 'bilinear', align_corners=True)
+                    preds.append(pred_per_img)
+                    pointer += num_window_per_img
+                preds = torch.cat(preds)
+                t_resulter['pred'] = (preds, )
+                t_resulter['activated_pred'] = (F.softmax(preds, dim=1), )
+                t_resulter['ssls4l_rc_inp'] = preds
+                t_resulter['sslcct_ad_inp'] = latent
+
                 if not 'pred' in t_resulter.keys():
                     self._pred_err()
                 t_pred = tool.dict_value(t_resulter, 'pred')
@@ -240,7 +356,7 @@ class SSLMTSLIDING(ssl_base._SSLBase):
         for idx, (inp, gt) in enumerate(data_loader):
             timer = time.time()
 
-            s_inp, t_inp, gt = self._batch_prehandle(inp, gt, False)
+            s_inp, t_inp, gt = self._batch_prehandle(inp, None, gt, False)
             if len(gt) > 1 and idx == 0:
                 self._inp_warn()
 
@@ -352,28 +468,29 @@ class SSLMTSLIDING(ssl_base._SSLBase):
                 s_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda()))
             else:
                 s_inp_var.append(Variable(i).cuda())
-
-        for idx, i in enumerate(inp_teacher):
-            if is_train and idx == 0:
-                # t_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda()))
-                temp = []
-                for img in i:
-                    temp.append(img.cuda())
-                t_inp_var.append(temp)
-            else:
-                temp = []
-                for img in i:
-                    temp.append(img.cuda())
-                t_inp_var.append(temp)
-                # t_inp_var.append(Variable(i).cuda())
         s_inp = tuple(s_inp_var)
-        t_inp = tuple(t_inp_var)
+        if inp_teacher:
+            for idx, i in enumerate(inp_teacher):
+                if is_train and idx == 0:
+                    # t_inp_var.append(self.gaussian_noiser.forward(Variable(i).cuda()))
+                    temp = []
+                    for img in i:
+                        temp.append(img.cuda())
+                    t_inp_var.append(temp)
+                else:
+                    temp = []
+                    for img in i:
+                        temp.append(img.cuda())
+                    t_inp_var.append(temp)
+            t_inp = tuple(t_inp_var)
+        else:
+            t_inp = (s_inp_var[0].clone(),)
 
         gt_var = []
         for g in gt:
             gt_var.append(Variable(g).cuda())
         gt = tuple(gt_var)
-
+        
         return s_inp, t_inp, gt
 
     def _update_ema_variables(self, s_model, t_model, ema_decay, cur_step):

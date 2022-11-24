@@ -61,94 +61,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
             {'params': self.model.get_10x_lr_params(), 'lr': self.args.lr * 10}
         ]
 
-    def make_sliding_windows(self, inp):
-        # This is the sliding window eval implementation
-        # print(data_no_aug.shape)
-
-        # img1 = inp[0]
-        # save_image(img1, 'pics/before_sliding.png')
-
-        self.batch, self.channels, self.rows, self.columns = inp.shape
-        self.output_classes = 21 #TODO
-        self.kernel_size = self.args.im_size
-        # des_stride = 25
-        # # import pdb; pdb.set_trace()
-        # n_windows_row = max(int((self.rows - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
-        # n_windows_col = max(int((self.columns - des_stride) / (self.kernel_size - des_stride)) + 1, 2)
-        # self.stride = (int((n_windows_row * self.kernel_size - self.rows)
-        #                    / (n_windows_row - 1)),
-        #                int((n_windows_col * self.kernel_size - self.rows)
-        #                    / (n_windows_col - 1)))
-        # if self.rows < self.kernel_size:
-        #     padding_rows = int((self.kernel_size - self.rows) / 2) + 1
-        # else:
-        #     padding_rows = 0
-        # if self.columns < self.kernel_size:
-        #     padding_cols = int((self.kernel_size - self.columns) / 2) + 1
-        # else:
-        #     padding_cols = 0
-        # self.padding = (padding_rows, padding_cols)
-        self.padding = int(self.kernel_size // 3)
-        self.stride = int(self.kernel_size // self.args.sliding_window_stride_div)
-        inp = nn.functional.unfold(
-            inp,
-            kernel_size=(self.kernel_size, self.kernel_size),
-            padding=self.padding,
-            stride=self.stride)
-        self.num_windows = inp.shape[-1]
-        inp = inp.permute((0, 2, 1))
-        inp = inp.reshape(self.batch * self.num_windows, self.channels, self.kernel_size, self.kernel_size)
-
-        # for i in range(inp.shape[0]):
-        #     img1 = inp[i]
-        #     save_image(img1, f'pics/after_sliding_{i}.png')
-        return inp
-
-    def unmake_sliding_windows(self, pred, latent):
-        import remote_pdb; remote_pdb.set_trace()
-
-        # for i in range(pred.shape[0]):
-        #     img1 = pred[i].argmax(dim=0).to(torch.float32).cpu()/21
-        #     save_image(img1, f'pics/pred_before_fold_{i}.png')
-        # print("teacher output[0]:", teacher_output_0.shape)
-        pred = pred.reshape(self.batch, self.num_windows, self.output_classes * self.kernel_size**2)
-        pred = pred.permute((0, 2, 1))
-        temp = torch.ones_like(pred)
-        pred = nn.functional.fold(
-            pred,
-            output_size=(self.rows, self.columns),
-            kernel_size=(self.kernel_size, self.kernel_size),
-            padding=self.padding,
-            stride=self.stride)
-        temp = nn.functional.fold(
-            temp,
-            output_size=(self.rows, self.columns),
-            kernel_size=(self.kernel_size, self.kernel_size),
-            padding=self.padding,
-            stride=self.stride)
-        # print("temp shape: ", temp.shape)
-        # temp = temp[:, 0].to(torch.float32).cpu()
-        # pre_conv_temp = pre_conv_temp.permute((1, 2, 0))
-
-        # post_conv_temp = labelMapToIm(pre_conv_temp, [
-        #     [[0, 0, 0], 0],
-        #     [[256, 0, 0], 1],
-        #     [[0, 256, 0], 2],
-        #     [[0, 0, 256], 3],
-        # ])
-        # print("unique vals: ", temp.unique())
-        # save_image(post_conv_temp, "pics/temp.png")
-        # exit()
-
-        # img1 = pred[0].argmax(dim=0).to(torch.float32).cpu()/21
-        # save_image(img1, 'pics/pred_after_fold.png')
-        # exit()
-        # return pred, latent
-        return pred / temp, latent
-
-    def forward(self, inp, slide=False, pred_shape = None):
-        if slide:
-            assert pred_shape  is not None
+    def forward(self, inp):
         resulter, debugger = {}, {}
 
         if not len(inp) == 1:
@@ -156,19 +69,7 @@ class DeepLab(pixelssl.model_template.TaskModel):
                 'Semantic segmentation model DeepLab requires only one input\n'
                 'However, {0} inputs are given\n'.format(len(inp)))
         inp = inp[0]
-        if slide:
-            windows = []
-            num_windows = []
-            for img in inp:
-                windows.append(self.make_sliding_windows(img.unsqueeze(0)))
-                num_windows.append(windows[-1].shape[0])
-            inp = torch.cat(windows)
-
         pred, latent = self.model.forward(inp)
-
-        if slide:
-            pred, latent = self.unmake_sliding_windows(pred, latent)
-            pred = F.interpolate(pred, size = pred_shape, mode = 'bilinear')
         resulter['pred'] = (pred, )
         resulter['activated_pred'] = (F.softmax(pred, dim=1), )
         resulter['ssls4l_rc_inp'] = pred
