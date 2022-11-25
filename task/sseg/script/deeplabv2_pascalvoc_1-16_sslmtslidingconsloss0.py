@@ -20,7 +20,7 @@ config = collections.OrderedDict(
         ('ssl_algorithm', pixelssl.SSL_MTSLIDING),
 
         ('cons_for_labeled', False),
-        ('cons_scale', 1.0),
+        ('cons_scale', 0.0),
         ('cons_rampup_epochs', 3),
         
         ('ema_decay', 0.99),

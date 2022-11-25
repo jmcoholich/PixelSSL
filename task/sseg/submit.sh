@@ -1,21 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=deeplabv2_pascalvoc_1-16_sslmtsliding
-#SBATCH --gres gpu:1
+#SBATCH --job-name=deeplabv2_pascalvoc_1-16_sslmtsliding321
+#SBATCH --gres gpu:4
 #SBATCH --nodes 1
 #SBATCH --cpus-per-gpu 7
 #SBATCH --partition=short
 #SBATCH --exclude=nestor
-#SBATCH --output=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding.out
-#SBATCH --error=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding.err
+#SBATCH --output=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding321.out
+#SBATCH --error=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding321.err
 #SBATCH --constraint=rtx_6000
 
 set -x
 
 source ~/.bashrc
-conda activate PixelSSL2
-cd /nethome/skareer6/flash/Projects/SlidingTeacher/PixelSSL/task/sseg
+conda activate PixelSSLenv
+cd /srv/flash1/hmaheshwari7/semi-supervised/segmentation/PixelSSL/task/sseg
 
 echo "Launching training"
-python -m script.deeplabv2_pascalvoc_1-16_sslmtsliding
-
-
+python -m script.deeplabv2_pascalvoc_1-16_sslmtsliding321

@@ -31,7 +31,7 @@ config = collections.OrderedDict(
         
         ('out_path', 'result'),
         
-        ('visualize', True),
+        ('visualize', False),
         ('debug', False),
 
         ('val_freq', 1),
@@ -44,7 +44,7 @@ config = collections.OrderedDict(
         ('valset', {'pascal_voc_aug': ['dataset/PascalVOC/VOCdevkit/VOC2012']}),
         ('num_workers', 2),
         ('im_size', 160),
-        ('scale_threshold', 1.5),
+        ('scale_threshold', 0),
 
         ('sublabeled_path', 'dataset/PascalVOC/sublabeled_prefix/1-16/0.txt'),
         ('ignore_unlabeled', False),
