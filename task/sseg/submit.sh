@@ -1,29 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=suponly_224im
+#SBATCH --job-name=deeplabv2_pascalvoc_1-16_sslmtsliding321
 #SBATCH --gres gpu:4
 #SBATCH --nodes 1
 #SBATCH --cpus-per-gpu 7
 #SBATCH --partition=short
 #SBATCH --exclude=nestor
-#SBATCH --output=slurm_logs/suponly_224im.out
-#SBATCH --error=slurm_logs/suponly_224im.err
-#SBATCH --constraint=2080_ti
+#SBATCH --output=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding321.out
+#SBATCH --error=slurm_logs/deeplabv2_pascalvoc_1-16_sslmtsliding321.err
+#SBATCH --constraint=rtx_6000
 
 set -x
 
-# source /nethome/jcoholich3/.bashrc
-# conda init bash
-# conda deactivate
-source /nethome/jcoholich3/miniconda3/etc/profile.d/conda.sh
-
-conda activate PixelSSL
-
+source ~/.bashrc
+conda activate PixelSSLenv
+cd /srv/flash1/hmaheshwari7/semi-supervised/segmentation/PixelSSL/task/sseg
 
 echo "Launching training"
-# python -m script.deeplabv2_pascalvoc_1-16_sslmt
-# python -m script.deeplabv2_pascalvoc_1-16_sslmt_large_batch
-# python -m script.deeplabv2_pascalvoc_1-16_suponly
-# python -m script.deeplabv2_pascalvoc_1-16_suponly_160im
-python -m script.deeplabv2_pascalvoc_1-16_suponly_224im
-
-
+python -m script.deeplabv2_pascalvoc_1-16_sslmtsliding321

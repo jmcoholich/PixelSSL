@@ -34,7 +34,7 @@ config = collections.OrderedDict(
         # ('ema_decay', 0.99),
 
         # arguments - exp
-        ('resume', 'result/deeplabv2_pascalvoc_1-16_suponly/first_run/ckpt/checkpoint_40.ckpt'),
+        ('resume', '/nethome/jcoholich3/PixelSSL/task/sseg/result/deeplabv2_pascalvoc_1-16_suponly_224im/2022-11-21_11:57:26/ckpt/checkpoint_40.ckpt'),
         ('validation', True),
 
         ('out_path', 'result'),
@@ -79,6 +79,8 @@ config = collections.OrderedDict(
         ('epochs', 40),
         ('batch_size', 4),
         ('unlabeled_batch_size', 0),
+        ('sliding_window_eval', True),
+        ('sliding_window_stride_div', 1),
 
     ]
 )

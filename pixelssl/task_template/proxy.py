@@ -19,10 +19,10 @@ from pixelssl.nn import optimizer as nnoptimizer
 
 def add_parser_arguments(parser):
     """ Add the arguments required by all types of proxy here.
-    
-    This function defines the arguments that required by the 
+
+    This function defines the arguments that required by the
     script. Do not use the names that are used in this function!
-    Please add task-specific proxy arguments into the function 
+    Please add task-specific proxy arguments into the function
     of the same name in 'task/xxx/proxy.py'
     """
 
@@ -31,7 +31,7 @@ def add_parser_arguments(parser):
     parser.add_argument('--resume', type=str, default='', metavar='', help='exp - the checkpoint file that will be resumed')
     parser.add_argument('--validation', type=cmd.str2bool, default=False, metavar='', help='exp - validation only if True')
     parser.add_argument('--out-path', type=str, default='', metavar='', help='exp - the path where the output of experiment is stored')
-    parser.add_argument('--visualize', type=cmd.str2bool, default=False, metavar='', help='exp - save the output images for visualization if True')  
+    parser.add_argument('--visualize', type=cmd.str2bool, default=False, metavar='', help='exp - save the output images for visualization if True')
     parser.add_argument('--debug', type=cmd.str2bool, default=False, metavar='', help='exp - experiment under debug mode if True')
     parser.add_argument('--val-freq', type=int, default=1, metavar='', help='exp - validation frequency during training [unit: epoch]')
     parser.add_argument('--log-freq', type=int, default=100, metavar='', help='exp - logging frequency during training and validation [unit: iteration]')
@@ -64,8 +64,8 @@ def add_parser_arguments(parser):
     parser.add_argument('--task', type=str, default='', metavar='', help='autoset - name string of current task [this argument is automatically set by code!]')
     parser.add_argument('--labeled-batch-size', type=int, default=None, metavar='', help='autoset - number of labeled samples in a mini-batch on each GPU [this argument is automatically set by code!]')
     parser.add_argument('--checkpoint-path', type=str, default='', metavar='', help='autoset - the path used to save the checkpoint files [this argument is automatically set by code!]')
-    parser.add_argument('--visual-debug-path', type=str, default='', metavar='', help='autoset - the path used to save the debuging images for visualization [this argument is automatically set by code!]') 
-    parser.add_argument('--visual-train-path', type=str, default='', metavar='', help='autoset - the path used to save the training images for visualization [this argument is automatically set by code!]') 
+    parser.add_argument('--visual-debug-path', type=str, default='', metavar='', help='autoset - the path used to save the debuging images for visualization [this argument is automatically set by code!]')
+    parser.add_argument('--visual-train-path', type=str, default='', metavar='', help='autoset - the path used to save the training images for visualization [this argument is automatically set by code!]')
     parser.add_argument('--visual-val-path', type=str, default='', metavar='', help='autoset - the path used to save the validation images for visualization [this argument is automatically set by code!]')
     parser.add_argument('--is-epoch-lrer', type=cmd.str2bool, default=None, metavar='', help='autoset - adjust the learning rate after (1) each epoch (if True) or each iter (if False) [this argument is automatically set by code!]')
     parser.add_argument('--iters-per-epoch', type=int, default=None, metavar='', help='autoset - number of iterations inside each epoch [this argument is automatically set by code!]')
@@ -76,7 +76,7 @@ class TaskProxy:
 
     This proxy class associates the task-specific components:
         func, data, model, criterion
-    with the SSL algorithm. 
+    with the SSL algorithm.
     Task proxy is an agent to execute the experiment. It:
         (1) preprocesses the arguments in the script
         (2) creates datasets, data loaders, etc.
@@ -85,15 +85,15 @@ class TaskProxy:
     Inherit from this class to create the proxy for your task.
     The following functions should be implemented:
         __init__,
-    
+
     In 'task/xxx/proxy.py', you should:
         (1) import the task-specific func, data, model, criterion
         (2) set two constants, NAME and TASK_TYPE, of the task proxy.
-        (3) call the '__init__' function of 'TaskProxy' with the components 
+        (3) call the '__init__' function of 'TaskProxy' with the components
             that are imported in (1)
 
-    The functions implemented in this "TaskProxy" class are suitable for most tasks. 
-    You only need to override the function '__init__' in the subclass. 
+    The functions implemented in this "TaskProxy" class are suitable for most tasks.
+    You only need to override the function '__init__' in the subclass.
     """
 
     NAME = 'task'                       # specific name of task
@@ -132,12 +132,12 @@ class TaskProxy:
         if self.args.resume is not None and self.args.resume != '':
             logger.log_info('Load checkpoint from: {0}'.format(self.args.resume))
             start_epoch = self.ssl_algorithm.load_checkpoint()
-        
+
         if self.args.validation:
             if self.val_loader is None:
                 logger.log_err('No data loader for validation.\n'
                                'Please set right \'valset\' in the script.\n')
-                        
+
             logger.log_info(['=' * 78, '\nStart to validate model\n', '=' * 78])
             with torch.no_grad():
                 self.ssl_algorithm.validate(self.val_loader, start_epoch - 1)
@@ -158,9 +158,9 @@ class TaskProxy:
             if (epoch + 1) % self.args.checkpoint_freq == 0:
                 self.ssl_algorithm.save_checkpoint(epoch + 1)
                 logger.log_info("Save checkpoint for epoch {0}".format(epoch + 1))
-        
+
             logger.log_info('Finish epoch in {0} seconds\n'.format(time.time() - timer))
-        
+
         logger.log_info('Finish experiment {0}\n'.format(self.args.exp_id))
 
     def _init(self):
@@ -169,7 +169,7 @@ class TaskProxy:
 
         self._preprocess_arguments()
         self._create_dataloader()
-        self._build_ssl_algorithm()    
+        self._build_ssl_algorithm()
 
     def _preprocess_arguments(self):
         """ Preprocess the arguments in the script.
@@ -199,7 +199,7 @@ class TaskProxy:
             logger.log_err('Condition:\n'
                            '\tlen(self.args.models) == len(self.args.optimizers) == len(self.args.lrers) == len(self.args.criterions\n'
                            'is not satisfied in the script\n')
-        
+
         for (model, criterion, optimizer, lrer) in \
             zip(self.args.models.values(), self.args.criterions.values(), self.args.optimizers.values(), self.args.lrers.values()):
             if model not in self.model.__dict__:
@@ -214,11 +214,11 @@ class TaskProxy:
             elif lrer not in nnlrer.__dict__:
                 logger.log_err('Unsupport learning rate scheduler: {0}\n'
                                'Please implement lr scheduler wrapper in \'pixelssl/nn/lrer.py\'\n'.format(lrer))
-            
+
         # check the types of lrers
         for lrer in self.args.lrers.values():
             if lrer in nnlrer.EPOCH_LRERS:
-                is_epoch_lrer = True 
+                is_epoch_lrer = True
             elif lrer in nnlrer.ITER_LRERS:
                 is_epoch_lrer = False
             else:
@@ -247,7 +247,7 @@ class TaskProxy:
             for vpath in [self.args.visual_debug_path, self.args.visual_train_path, self.args.visual_val_path]:
                 if not os.path.exists(vpath):
                     os.makedirs(vpath)
-        
+
         # handle argumens for multiply GPUs training
         self.args.gpus = torch.cuda.device_count()
         if self.args.gpus < 1:
@@ -259,7 +259,7 @@ class TaskProxy:
         self.args.num_workers *= self.args.gpus
         self.args.batch_size *= self.args.gpus
         self.args.unlabeled_batch_size *= self.args.gpus
-        
+
         # TODO: support unsupervised and self-supervised training
         if self.args.unlabeled_batch_size >= self.args.batch_size:
             logger.log_err('The argument \'unlabeled_batch_size\' ({0}) should be smaller than \'batch_size\' ({1}) '
@@ -278,7 +278,7 @@ class TaskProxy:
         # create dataloder for training
         # ---------------------------------------------------------------------
 
-        # ignore_unlabeled == False & unlabeled_batch_size != 0 
+        # ignore_unlabeled == False & unlabeled_batch_size != 0
         #   means that both labeled and unlabeled data are used
         with_unlabeled_data = not self.args.ignore_unlabeled and self.args.unlabeled_batch_size != 0
         # ignore_unlabeled == True & unlabeled_batch_size == 0
@@ -302,7 +302,7 @@ class TaskProxy:
             # calculate the number of unlabeledsets
             unlabeledset_num = 0
             for key, value in self.args.unlabeledset.items():
-                unlabeledset_num += len(value) 
+                unlabeledset_num += len(value)
 
             # if only one labeled training set and without any unlabeled set
             if trainset_num == 1 and unlabeledset_num == 0:
@@ -337,13 +337,13 @@ class TaskProxy:
                     logger.log_err('Multiple training datasets are given. \n'
                                    'Inter-split unlabeled set is not allowed.\n'
                                    'Please remove the argument \'sublabeled_path\' in the script\n')
-                
+
                 # load all training sets
                 labeled_sets = []
                 for set_name, set_dirs in self.args.trainset.items():
                     for set_dir in set_dirs:
                         labeled_sets.append(self._load_dataset(set_name, set_dir))
-                    
+
                 # load all extra unlabeled sets
                 unlabeled_sets = []
                 # if any extra unlabeled set is given
@@ -352,7 +352,7 @@ class TaskProxy:
                         for set_dir in set_dirs:
                             unlabeled_sets.append(self._load_dataset(set_name, set_dir))
 
-                # if unalbeledset_num == 0 but you want to use the unlabeled data for training    
+                # if unalbeledset_num == 0 but you want to use the unlabeled data for training
                 elif with_unlabeled_data:
                     logger.log_err('Try to use the unlabeled samples without any SSL dataset wrapper\n'
                                    'Please add the argument \'unlabeledset\' in the script\n')
@@ -364,15 +364,24 @@ class TaskProxy:
                 unlabeled_train_samples = len(trainset.unlabeled_idxs)
 
             # if use labeled data only
+            def my_collate(batch):
+                data = [item[0][0] for item in batch]
+                target = [item[1][0] for item in batch]
+                gt = [item[2][0] for item in batch]
+                meta_data = [item[3] for item in batch]
+                gt = torch.stack(gt).to(torch.long)
+                data = torch.stack(data)
+                return [(data,), (target,), (gt,), meta_data]
+
             if without_unlabeled_data:
-                self.train_loader = torch.utils.data.DataLoader(trainset, batch_size=self.args.batch_size, 
-                    shuffle=True, num_workers=self.args.num_workers, pin_memory=True, drop_last=True)
+                self.train_loader = torch.utils.data.DataLoader(trainset, batch_size=self.args.batch_size,
+                    shuffle=True, num_workers=self.args.num_workers, pin_memory=True, drop_last=True, collate_fn=my_collate)
             # if use both labeled and unlabeled data
             elif with_unlabeled_data:
-                train_sampler = nndata.TwoStreamBatchSampler(trainset.labeled_idxs, trainset.unlabeled_idxs, 
+                train_sampler = nndata.TwoStreamBatchSampler(trainset.labeled_idxs, trainset.unlabeled_idxs,
                     self.args.labeled_batch_size, self.args.unlabeled_batch_size)
-                self.train_loader = torch.utils.data.DataLoader(trainset, batch_sampler=train_sampler, 
-                    num_workers=self.args.num_workers, pin_memory=True)
+                self.train_loader = torch.utils.data.DataLoader(trainset, batch_sampler=train_sampler,
+                    num_workers=self.args.num_workers, pin_memory=True, collate_fn=my_collate)
 
         # ---------------------------------------------------------------------
         # create dataloader for validation
@@ -397,7 +406,7 @@ class TaskProxy:
                     valsets.append(self._load_dataset(set_name, set_dir, is_train=False))
             valset = nndata.JointDatasetsWrapper(valsets, [], ignore_unlabeled=True)
             val_samples = len(valset.labeled_idxs)
-        
+
         # NOTE: batch size is set to 1 during the validation
         self.val_loader = torch.utils.data.DataLoader(valset, batch_size=1,
             shuffle=False, num_workers=self.args.num_workers, pin_memory=True)
@@ -409,7 +418,7 @@ class TaskProxy:
             logger.log_err('Validate data loader is required if validate mode is opened\n')
         elif self.val_loader is None:
             logger.log_warn('No validate data loader, there are no validation during the training\n')
-        
+
         # set 'iters_per_epoch', which is required by ITER_LRERS
         self.args.iters_per_epoch = len(self.train_loader) if self.train_loader is not None else -1
 
@@ -427,7 +436,7 @@ class TaskProxy:
             self.criterion_dict[cname] = self.criterion.__dict__[self.args.criterions[cname]]()
             self.lrer_dict[cname] = nnlrer.__dict__[self.args.lrers[cname]](self.args)
             self.optimizer_dict[cname] = nnoptimizer.__dict__[self.args.optimizers[cname]](self.args)
-        
+
         logger.log_info('SSL algorithm: \n  {0}\n'.format(self.args.ssl_algorithm))
         logger.log_info('Models: ')
         self.ssl_algorithm = pixelssl.ssl_algorithm.__dict__[self.args.ssl_algorithm].__dict__[self.args.ssl_algorithm](
@@ -437,9 +446,9 @@ class TaskProxy:
         if not self.TASK_TYPE in self.ssl_algorithm.SUPPORTED_TASK_TYPES:
             logger.log_err('SSL algorithm - {0} - supports task types {1}\n'
                            'However, the given task - {2} - belongs to {3}\n'
-                           .format(self.ssl_algorithm.NAME, self.ssl_algorithm.SUPPORTED_TASK_TYPES, 
+                           .format(self.ssl_algorithm.NAME, self.ssl_algorithm.SUPPORTED_TASK_TYPES,
                                    self.args.task, self.TASK_TYPE))
-    
+
     def _load_dataset(self, dataset_name, dataset_dir, is_train=True):
         """ Load one dataset.
         """

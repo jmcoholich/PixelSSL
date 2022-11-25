@@ -20,7 +20,7 @@ def create_parser(algorithm):
     optimizer.add_parser_arguments(parser)
     lrer.add_parser_arguments(parser)
     ssl_algorithm.__dict__[algorithm].add_parser_arguments(parser)
-    
+
     return parser
 
 
