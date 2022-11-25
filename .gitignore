@@ -101,4 +101,6 @@ ENV/
 
 # Project files
 .vscode
-dataset/
+#data
+task/sseg/dataset/
+
