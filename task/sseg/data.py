@@ -40,6 +40,7 @@ def cityscapes():
 
 class CityScapes(pixelssl.data_template.TaskDataset):
     IMAGE = 'image'
+    IMAGE_TEACHER = 'image_teacher'
     LABEL = 'label'
     PREFIX = 'prefix'
 
@@ -85,22 +86,26 @@ class CityScapes(pixelssl.data_template.TaskDataset):
         label = self.im_loader.load(label_path) if has_label else None
         
         if self.is_train:
-            image, label = self._train_prehandle(image, label)
+            image, image_teacher, label, metadata = self._train_prehandle(image, label)
         else:
             image, label = self._val_prehandle(image, label)
 
         label = label[None, :, :] if has_label else label
 
-        return (image, ), (label, )
+        if self.is_train:
+            return (image, ), (image_teacher, ), (label, ), metadata
+        else:
+            return (image, ), (label, )
 
     def _train_prehandle(self, image, label):
+        # Return teacher img, student img, label, and metadata
         if label is None:
-            sample = {self.IMAGE: image, self.LABEL: image} 
+            sample = {self.IMAGE: image, self.LABEL: image}
         else:
             sample = {self.IMAGE: image, self.LABEL: label}
         composed_transforms = transforms.Compose([
-            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size),
             RandomHorizontalFlip(),
+            RandomScaleCrop(base_size=self.args.train_base_size, crop_size=self.args.im_size, scale_threshold = self.args.scale_threshold), #This adds two new elements to the returned dict
             # RandomGaussianBlur(),
             Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensor()])
@@ -108,9 +113,9 @@ class CityScapes(pixelssl.data_template.TaskDataset):
         transformed_sample = composed_transforms(sample)
 
         if label is None:
-            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE][0, ...] * 0.0 - 1.0
+            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE_TEACHER], transformed_sample[self.IMAGE][0, ...] * 0.0 - 1.0, transformed_sample['metadata']
         else:
-            return transformed_sample[self.IMAGE], transformed_sample[self.LABEL]
+            return transformed_sample[self.IMAGE], transformed_sample[self.IMAGE_TEACHER], transformed_sample[self.LABEL], transformed_sample['metadata']
 
     def _val_prehandle(self, image, label):
         sample = {self.IMAGE: image, self.LABEL: label}
