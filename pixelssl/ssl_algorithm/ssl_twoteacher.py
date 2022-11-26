@@ -34,11 +34,12 @@ def add_parser_arguments(parser):
     parser.add_argument('--cons-scale', type=float, default=-1, help='sslmt - consistency constraint coefficient')
     parser.add_argument('--cons-rampup-epochs', type=int, default=-1, help='sslmt - ramp-up epochs of conistency constraint')
 
-    parser.add_argument('--ema-decay', type=float, default=0.999, help='sslmt - EMA coefficient of teacher model')
+    parser.add_argument('--ema-decay', type=float, default=0.99, help='sslmt - EMA coefficient of teacher model')
+    parser.add_argument('--ema-decay2', type=float, default=0.999, help='sslmt - EMA coefficient of teacher model')
     parser.add_argument('--gaussian-noise-std', type=float, default=None, help='sslmt - std of input gaussian noise (set to None to disable it)')
 
 
-def ssl_mt(args, model_dict, optimizer_dict, lrer_dict, criterion_dict, task_func):
+def ssl_twoteacher(args, model_dict, optimizer_dict, lrer_dict, criterion_dict, task_func):
     if not len(model_dict) == len(optimizer_dict) == len(lrer_dict) == len(criterion_dict) == 1:
         logger.log_err('The len(element_dict) of SSL_MT should be 1\n')
     elif list(model_dict.keys())[0] != 'model':
@@ -50,20 +51,20 @@ def ssl_mt(args, model_dict, optimizer_dict, lrer_dict, criterion_dict, task_fun
     lrer_funcs = [lrer_dict['model']]
     criterion_funcs = [criterion_dict['model']]
 
-    algorithm = SSLMT(args)
+    algorithm = SSLTWOTEACHER(args)
     algorithm.build(model_funcs, optimizer_funcs, lrer_funcs, criterion_funcs, task_func)
     return algorithm
 
 
-class SSLMT(ssl_base._SSLBase):
-    NAME = 'ssl_mt'
+class SSLTWOTEACHER(ssl_base._SSLBase):
+    NAME = 'ssl_twoteacher'
     SUPPORTED_TASK_TYPES = [REGRESSION, CLASSIFICATION]
 
     def __init__(self, args):
-        super(SSLMT, self).__init__(args)
+        super(SSLTWOTEACHER, self).__init__(args)
 
         # define the student model and the teacher model
-        self.s_model, self.t_model = None, None
+        self.s_model, self.t_model, self.t2_model = None, None, None
         self.s_optimizer = None
         self.s_lrer = None
         self.s_criterion = None
@@ -94,13 +95,17 @@ class SSLMT(ssl_base._SSLBase):
         # create models
         self.s_model = func.create_model(model_funcs[0], 's_model', args=self.args)
         self.t_model = func.create_model(model_funcs[0], 't_model', args=self.args)
+        self.t2_model = func.create_model(model_funcs[0], 't2_model', args=self.args)
         # call 'patch_replication_callback' to use the `sync_batchnorm` layer
         patch_replication_callback(self.s_model)
         patch_replication_callback(self.t_model)
+        patch_replication_callback(self.t2_model)
         # detach the teacher model
         for param in self.t_model.parameters():
             param.detach_()
-        self.models = {'s_model': self.s_model, 't_model': self.t_model}
+        for param in self.t2_model.parameters():
+            param.detach_()
+        self.models = {'s_model': self.s_model, 't_model': self.t_model, 't2_model': self.t2_model}
 
         # create optimizers
         self.s_optimizer = optimizer_funcs[0](self.s_model.module.param_groups)
@@ -127,6 +132,7 @@ class SSLMT(ssl_base._SSLBase):
 
         self.s_model.train()
         self.t_model.train()
+        self.t2_model.train()
 
         for idx, (inp, _, gt, _) in enumerate(data_loader):
             timer = time.time()
@@ -162,12 +168,21 @@ class SSLMT(ssl_base._SSLBase):
 
             # forward the teacher model
             with torch.no_grad():
-                t_resulter, t_debugger = self.t_model.forward(t_inp)
-                if not 'pred' in t_resulter.keys():
+                t1_resulter, t1_debugger = self.t_model.forward(t_inp)
+                if not 'pred' in t1_resulter.keys():
                     self._pred_err()
-                t_pred = tool.dict_value(t_resulter, 'pred')
-                t_activated_pred = tool.dict_value(t_resulter, 'activated_pred')
-            
+                t1_pred = tool.dict_value(t1_resulter, 'pred')
+                t1_activated_pred = tool.dict_value(t1_resulter, 'activated_pred')
+
+                t2_resulter, t2_debugger = self.t2_model.forward(t_inp)
+                if not 'pred' in t2_resulter.keys():
+                    self._pred_err()
+                t2_pred = tool.dict_value(t2_resulter, 'pred')
+                t2_activated_pred = tool.dict_value(t2_resulter, 'activated_pred')
+
+                t_pred = ((t1_pred[0] + t2_pred[0])/2, )
+                t_activated_pred = ((t1_activated_pred[0] + t2_activated_pred[0])/2, )
+                
                 # calculate 't_task_loss' for recording
                 l_t_pred = func.split_tensor_tuple(t_pred, 0, lbs)
                 l_t_inp = func.split_tensor_tuple(t_inp, 0, lbs)
@@ -194,6 +209,7 @@ class SSLMT(ssl_base._SSLBase):
 
             # update the teacher model by EMA
             self._update_ema_variables(self.s_model, self.t_model, self.args.ema_decay, cur_step)
+            self._update_ema_variables(self.s_model, self.t2_model, self.args.ema_decay2, cur_step)
 
             # logging
             self.meters.update('batch_time', time.time() - timer)
@@ -228,6 +244,7 @@ class SSLMT(ssl_base._SSLBase):
 
         self.s_model.eval()
         self.t_model.eval()
+        self.t2_model.eval()
 
         for idx, (inp, gt) in enumerate(data_loader):
             timer = time.time()
@@ -246,11 +263,20 @@ class SSLMT(ssl_base._SSLBase):
             s_task_loss = torch.mean(s_task_loss)
             self.meters.update('s_task_loss', s_task_loss.data)
 
-            t_resulter, t_debugger = self.t_model.forward(t_inp)
-            if not 'pred' in t_resulter.keys() or not 'activated_pred' in t_resulter.keys():
+            t1_resulter, t1_debugger = self.t_model.forward(t_inp)
+            if not 'pred' in t1_resulter.keys() or not 'activated_pred' in t1_resulter.keys():
                 self._pred_err()
-            t_pred = tool.dict_value(t_resulter, 'pred')
-            t_activated_pred = tool.dict_value(t_resulter, 'activated_pred')
+            t1_pred = tool.dict_value(t1_resulter, 'pred')
+            t1_activated_pred = tool.dict_value(t1_resulter, 'activated_pred')
+
+            t2_resulter, t2_debugger = self.t2_model.forward(t_inp)
+            if not 'pred' in t2_resulter.keys() or not 'activated_pred' in t2_resulter.keys():
+                self._pred_err()
+            t2_pred = tool.dict_value(t2_resulter, 'pred')
+            t2_activated_pred = tool.dict_value(t2_resulter, 'activated_pred')
+
+            t_pred = ((t1_pred[0] + t2_pred[0])/2, )
+            t_activated_pred = ((t1_activated_pred[0] + t2_activated_pred[0])/2, )
 
             t_task_loss = self.s_criterion.forward(t_pred, gt, t_inp)
             t_task_loss = torch.mean(t_task_loss)
@@ -299,6 +325,7 @@ class SSLMT(ssl_base._SSLBase):
             'epoch': epoch, 
             's_model': self.s_model.state_dict(),
             't_model': self.t_model.state_dict(),
+            't2_model': self.t2_model.state_dict(),
             's_optimizer': self.s_optimizer.state_dict(),
             's_lrer': self.s_lrer.state_dict()
         }
@@ -316,6 +343,7 @@ class SSLMT(ssl_base._SSLBase):
 
         self.s_model.load_state_dict(checkpoint['s_model'])
         self.t_model.load_state_dict(checkpoint['t_model'])
+        self.t2_model.load_state_dict(checkpoint['t2_model'])
         self.s_optimizer.load_state_dict(checkpoint['s_optimizer'])
         self.s_lrer.load_state_dict(checkpoint['s_lrer'])
 

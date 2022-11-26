@@ -1,6 +1,7 @@
 from .ssl_null import SSLNULL
 from .ssl_mt import SSLMT
 from .ssl_mtsliding import SSLMTSLIDING
+from .ssl_twoteacher import SSLTWOTEACHER
 from .ssl_adv import SSLADV
 from .ssl_s4l import SSLS4L
 from .ssl_gct import SSLGCT
@@ -16,6 +17,7 @@ SSL_GCT = SSLGCT.NAME
 SSL_CCT = SSLCCT.NAME
 SSL_CUTMIX = SSLCUTMIX.NAME
 SSL_MTSLIDING = SSLMTSLIDING.NAME
+SSL_TWOTEACHER = SSLTWOTEACHER.NAME
 
 
 SSL_ALGORITHMS = [
@@ -26,7 +28,8 @@ SSL_ALGORITHMS = [
   SSL_GCT,
   SSL_CCT,
   SSL_CUTMIX,
-  SSL_MTSLIDING
+  SSL_MTSLIDING,
+  SSL_TWOTEACHER
 ]
 
 
@@ -38,3 +41,4 @@ del SSLGCT
 del SSLCCT
 del SSLCUTMIX
 del SSLMTSLIDING
+del SSLTWOTEACHER
